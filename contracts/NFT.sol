@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract NFT is ERC721URIStorage {
-    using Counters for Counters.counter;
-    Counters.counter private _tokenIds;
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIds;
     address contractAddress;
 
     constructor (address marketplaceAddress) ERC721("Marketplace Tokens", "MEET") {

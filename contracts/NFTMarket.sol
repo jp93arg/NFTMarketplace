@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract NFTMarket is ReentrancyGuard {
-    using Counters for Counters.counter;
-    Counters.counter private _itemIds;
-    Counters.counter private _itemsSold;
+    using Counters for Counters.Counter;
+    Counters.Counter private _itemIds;
+    Counters.Counter private _itemsSold;
 
     address payable owner; // the owner of the market will receive a commision for each item sale
     uint256 listingPrice = 0.025 ether; // in polygon network it will mean 0.025 matic
@@ -35,7 +35,7 @@ contract NFTMarket is ReentrancyGuard {
         address seller,
         address owner,
         uint256 price,
-        bool isSold,
+        bool isSold
     );
 
     function getListingPrice() public view returns (uint256) {
@@ -49,9 +49,7 @@ contract NFTMarket is ReentrancyGuard {
         _itemIds.increment();
         uint256 itemId = _itemIds.current();
 
-        
-        MarketItem item = MarketItem(itemId, nftContract, tokenId, payable(msg.sender), payable(address(0)), price, false);
-        idToMarketItem[itemId] = item;
+        idToMarketItem[itemId] = MarketItem(itemId, nftContract, tokenId, payable(msg.sender), payable(address(0)), price, false);
 
         IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
 
@@ -73,7 +71,7 @@ contract NFTMarket is ReentrancyGuard {
         payable(owner).transfer(msg.value);
     }
 
-    function getAvailableMarketItems() public view returns (MarketItem[]) {
+    function getAvailableMarketItems() public view returns (MarketItem[] memory) {
         uint itemCount = _itemIds.current();
         uint availableItemsCount = itemCount - _itemsSold.current();
         MarketItem[] memory items = new MarketItem[](availableItemsCount);
