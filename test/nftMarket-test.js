@@ -43,4 +43,37 @@ describe("NFTMarket", function () {
 
     console.log(items);
   });
+
+  it("Should create Auction and list" , async function () {
+    const MarketContract = await ethers.getContractFactory("NFTMarket");
+    const market = await MarketContract.deploy();
+    await market.deployed();
+
+    const marketAddress = await market.address;
+    const NFTContract = await ethers.getContractFactory("NFT");
+    const nft = await NFTContract.deploy(marketAddress);
+    await nft.deployed();
+    const nftContractAddress = await nft.address;
+
+    const createTokenResponse = await nft.createToken("www.faketokenlocation.com");
+    console.log(`createTokenResponse: ${createTokenResponse}`);
+    await nft.createToken("www.faketokenlocation2.com");
+
+    //here we will get the timestamp for 24 hours from now
+    const now = new Date();
+    const timestamp = now.getTime() + 86400000;
+    //const auctionEndsAt = ethers.BigNumber.from(timestamp);
+
+
+    await market.createAuction(nftContractAddress, 1, ethers.utils.parseUnits("0.001", "ether"), timestamp);
+
+    const auction = await market.getAuctionItem(1);
+
+    console.log(`auction: ${JSON.stringify(auction)}`);
+
+  });
+
+  it("Should create Auction, place a bid, and get the auction updated" , async function () {
+    console.log("pending");
+  });
 });
