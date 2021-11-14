@@ -1,5 +1,8 @@
 pragma solidity ^0.8.4;
 
+// TODO: allow same token id for different NFT contracts
+// TODO: test functions with invalid/non-existent token id
+
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -8,12 +11,27 @@ contract NFTMarket is ReentrancyGuard {
     using Counters for Counters.Counter;
     Counters.Counter private _itemIds;
     Counters.Counter private _itemsSold;
+    Counters.Counter private _auctionIds;
+    Counters.Counter private _auctionClaimedCount;
 
     address payable owner; // the owner of the market will receive a commision for each item sale
     uint256 listingPrice = 0.025 ether; // in polygon network it will mean 0.025 matic
 
     constructor() {
         owner = payable(msg.sender);
+    }
+
+    struct Auction {
+        uint256 auctionId;
+        address nftContract;
+        address seller;
+        uint256 startingPrice;
+        uint256 currentPrice;
+        uint256 highestBid;
+        address highestBidder;
+        uint auctionEnd;
+        uint256 itemId;
+        bool claimed;
     }
 
     struct MarketItem {
@@ -27,6 +45,7 @@ contract NFTMarket is ReentrancyGuard {
     }
 
     mapping(uint256 => MarketItem) private idToMarketItem;
+    mapping(uint256 => Auction) private idToAuction;
 
     event MarketItemCreated (
         uint indexed itemId,
@@ -38,8 +57,130 @@ contract NFTMarket is ReentrancyGuard {
         bool isSold
     );
 
+    event AuctionCreated (
+        address nftContract,
+        uint indexed itemId,
+        address seller,
+        uint256 startingPrice,
+        uint256 currentPrice,
+        uint256 highestBid,
+        address highestBidder,
+        uint auctionEnd
+    );
+
+    event newHighBid (
+        uint indexed itemId,
+        uint256 highestBid,
+        address highestBidder
+    );
+
+    event auctionItemClaimed (
+        uint indexed itemId,
+        address seller,
+        address owner
+    );
+
+    function createAuction(address nftContract, uint256 tokenId, uint256 startingPrice, uint auctionEnd) public payable nonReentrant {
+        require(startingPrice > 0, "Starting price must be greater than 0");
+        require(auctionEnd > 0, "auctionEnd must be greater than 0");
+        require(auctionEnd > block.timestamp, "auctionEnd must be in the future");
+
+        _auctionIds.increment();
+        uint256 auctionId = _auctionIds.current();
+
+        idToAuction[tokenId] = Auction(
+            auctionId,
+            nftContract,
+            msg.sender,
+            startingPrice,
+            0,
+            0,
+            msg.sender,
+            auctionEnd,
+            tokenId,
+            false
+        );
+
+        IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
+
+        emit AuctionCreated(
+            nftContract,
+            tokenId,
+            msg.sender,
+            startingPrice,
+            startingPrice,
+            0,
+            msg.sender,
+            auctionEnd
+        );
+        
+    }
+
+    // add functionality to tip the marketplace owner
+    function placeBid(uint256 tokenId, uint256 bid) public payable nonReentrant {
+        require(bid > 0, "Bid must be greater than 0");
+        require(msg.value >= bid, "you should transfer at least the bid amount");
+        require(idToAuction[tokenId].auctionEnd > block.timestamp, "Auction has ended");
+        // require(idToAuction[tokenId].highestBidder != msg.sender, "You have already placed a bid");
+
+        if (idToAuction[tokenId].highestBid < bid) {
+            idToAuction[tokenId].highestBid = bid;
+            idToAuction[tokenId].highestBidder = msg.sender;
+            emit newHighBid(tokenId, bid, msg.sender);
+        } else {
+            require(false, "Bid must be greater than the current highest bid");
+        }
+    }
+
+    function claimAuctionItem(uint256 tokenId) public payable nonReentrant {
+        require(idToAuction[tokenId].auctionEnd < block.timestamp, "Auction has not ended");
+        require(idToAuction[tokenId].highestBidder == msg.sender, "You must be the highest bidder to claim the item");
+
+        Auction memory auction = idToAuction[tokenId];
+        idToAuction[tokenId].claimed = true;
+        _auctionClaimedCount.increment();
+
+        IERC721(auction.nftContract).transferFrom(address(this), msg.sender, tokenId);
+
+        emit auctionItemClaimed(tokenId, auction.seller, msg.sender);
+    }
+
     function getListingPrice() public view returns (uint256) {
         return listingPrice;
+    }
+
+    function listCurrentAuctions() public view returns (Auction[] memory) {
+        uint auctionsCount = _auctionIds.current();
+        uint nonClaimedAuctionsCount = auctionsCount - _auctionClaimedCount.current();
+        Auction[] memory auctions = new Auction[](nonClaimedAuctionsCount);
+        uint currentIndex = 0;
+        for (uint256 i = 0; i < auctionsCount; i++) {
+            if (idToAuction[i].claimed == false) {
+                auctions[currentIndex] = idToAuction[i];
+                currentIndex++;
+            }
+        }
+
+        return auctions;
+    }
+
+    function listClaimedAuctions() public view returns (Auction[] memory) {
+        uint auctionsCount = _auctionIds.current();
+        uint claimedAuctionsCount = _auctionClaimedCount.current();
+        Auction[] memory auctions = new Auction[](claimedAuctionsCount);
+        uint currentIndex = 0;
+        for (uint256 i = 0; i < auctionsCount; i++) {
+            if (idToAuction[i].claimed == true) {
+                auctions[currentIndex] = idToAuction[i];
+                currentIndex++;
+            }
+        }
+
+        return auctions;
+    }
+
+    function getAuctionItem(uint256 itemId) public view returns (Auction memory) {
+        return idToAuction[itemId];
     }
 
     function createMarketItem(address nftContract, uint256 tokenId, uint256 price) public payable nonReentrant {
