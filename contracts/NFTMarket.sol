@@ -1,4 +1,5 @@
 pragma solidity ^0.8.4;
+import "hardhat/console.sol";
 
 // TODO: allow same token id for different NFT contracts
 // TODO: test functions with invalid/non-existent token id
@@ -26,10 +27,9 @@ contract NFTMarket is ReentrancyGuard {
         address nftContract;
         address seller;
         uint256 startingPrice;
-        uint256 currentPrice;
         uint256 highestBid;
         address highestBidder;
-        uint auctionEnd;
+        uint256 auctionEnd;
         uint256 itemId;
         bool claimed;
     }
@@ -62,10 +62,9 @@ contract NFTMarket is ReentrancyGuard {
         uint indexed itemId,
         address seller,
         uint256 startingPrice,
-        uint256 currentPrice,
         uint256 highestBid,
         address highestBidder,
-        uint auctionEnd
+        uint256 auctionEnd
     );
 
     event newHighBid (
@@ -80,7 +79,9 @@ contract NFTMarket is ReentrancyGuard {
         address owner
     );
 
-    function createAuction(address nftContract, uint256 tokenId, uint256 startingPrice, uint auctionEnd) public payable nonReentrant {
+    function createAuction(address nftContract, uint256 tokenId, uint256 startingPrice, uint256 auctionEnd) public payable nonReentrant {
+        console.log("block.timestamp ", block.timestamp);
+        console.log("auctionEnd ", auctionEnd);
         require(startingPrice > 0, "Starting price must be greater than 0");
         require(auctionEnd > 0, "auctionEnd must be greater than 0");
         require(auctionEnd > block.timestamp, "auctionEnd must be in the future");
@@ -94,7 +95,6 @@ contract NFTMarket is ReentrancyGuard {
             msg.sender,
             startingPrice,
             0,
-            0,
             msg.sender,
             auctionEnd,
             tokenId,
@@ -107,7 +107,6 @@ contract NFTMarket is ReentrancyGuard {
             nftContract,
             tokenId,
             msg.sender,
-            startingPrice,
             startingPrice,
             0,
             msg.sender,
