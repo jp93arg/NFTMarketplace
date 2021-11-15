@@ -2,6 +2,42 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("NFTMarket", function () {
+  it("Should create an auction, place a bid, wait until the auction finishes and claim the token" , async function () {
+    //Arange
+    const MarketContract = await ethers.getContractFactory("NFTMarket");
+    const market = await MarketContract.deploy();
+    await market.deployed();
+
+    const marketAddress = await market.address;
+    const NFTContract = await ethers.getContractFactory("NFT");
+    const nft = await NFTContract.deploy(marketAddress);
+    await nft.deployed();
+    const nftContractAddress = await nft.address;
+
+    await nft.createToken("www.faketokenlocation.com");
+
+    //here we will get the timestamp (in seconds) for 24 hours from now
+    const auctionEnd = (Math.floor(Date.now() / 1000)) + 10;
+
+    await market.createAuction(nftContractAddress, 1, ethers.utils.parseUnits("0.001", "ether"), auctionEnd);
+
+    let auction = await market.getAuctionItem(1);
+
+    const [_, secondAddress] = await ethers.getSigners(); //first address is being ignored because the contract is deployed by the first address
+
+    await market.connect(secondAddress).placeBid(1, ethers.utils.parseUnits("0.002", "ether"), {value : ethers.utils.parseUnits("0.002", "ether")});
+
+    auction = await market.getAuctionItem(1);
+    expect(auction.highestBid).to.equal(ethers.utils.parseUnits("0.002", "ether"));
+    expect(auction.highestBidder).to.equal(secondAddress.address);
+    while ((Math.floor(Date.now() / 1000)) < auctionEnd) {
+      console.log(`waiting for auction to finish...`);
+      await wait(1000);
+    };
+
+    const claimTx = await market.connect(secondAddress).claimAuctionItem(1);
+  });
+
   it("Should create and execute market sales", async function () {
     // Arrange
     const MarketContract = await ethers.getContractFactory("NFTMarket");
@@ -176,43 +212,6 @@ describe("NFTMarket", function () {
       //assert
       expect(error.message).contains("Auction has not ended");
     }
-  });
-
-  // TODO: re-enable this unit test once the time difference between the test runner and the contract is resolved
-  it.skip("Should create an auction, place a bid, wait until the auction finishes and claim the token" , async function () {
-    //Arange
-    const MarketContract = await ethers.getContractFactory("NFTMarket");
-    const market = await MarketContract.deploy();
-    await market.deployed();
-
-    const marketAddress = await market.address;
-    const NFTContract = await ethers.getContractFactory("NFT");
-    const nft = await NFTContract.deploy(marketAddress);
-    await nft.deployed();
-    const nftContractAddress = await nft.address;
-
-    await nft.createToken("www.faketokenlocation.com");
-
-    //here we will get the timestamp (in seconds) for 24 hours from now
-    const auctionEnd = (Math.floor(Date.now() / 1000)) + 10;
-
-    await market.createAuction(nftContractAddress, 1, ethers.utils.parseUnits("0.001", "ether"), auctionEnd);
-
-    let auction = await market.getAuctionItem(1);
-
-    const [_, secondAddress] = await ethers.getSigners(); //first address is being ignored because the contract is deployed by the first address
-
-    await market.connect(secondAddress).placeBid(1, ethers.utils.parseUnits("0.002", "ether"), {value : ethers.utils.parseUnits("0.002", "ether")});
-
-    auction = await market.getAuctionItem(1);
-    expect(auction.highestBid).to.equal(ethers.utils.parseUnits("0.002", "ether"));
-    expect(auction.highestBidder).to.equal(secondAddress.address);
-    while ((Math.floor(Date.now() / 1000)) < auctionEnd) {
-      console.log(`waiting for auction to finish...`);
-      await wait(1000);
-    };
-
-    const claimTx = await market.connect(secondAddress).claimAuctionItem(1);
   });
 });
 
