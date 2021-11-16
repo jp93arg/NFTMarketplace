@@ -127,11 +127,8 @@ export default function ListMyAssets() {
                     )}
                     {auctions.map((auction, i) => {
                         let auctionEndDate = ethers.BigNumber.from(auction.auctionEnd).toNumber();
-                        console.log("auctionEndDate", auctionEndDate);
                         auctionEndDate = new Date(auctionEndDate * 1000);
-                        console.log("auctionEndDate", auctionEndDate);
                         auctionEndDate = auctionEndDate.getTime();
-                        console.log("auctionEndDate", auctionEndDate);
                         auctionEndDate = new Intl.DateTimeFormat('en-US', {year: 'numeric', month: '2-digit',day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'}).format(auctionEndDate);
                         return (
                             <div key={i} className="bg-grey rounded shadow-md p-4">
