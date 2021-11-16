@@ -115,7 +115,7 @@ contract NFTMarket is ReentrancyGuard {
         
     }
 
-    // add functionality to tip the marketplace owner
+    // TODO: add functionality to tip the marketplace owner
     function placeBid(uint256 tokenId, uint256 bid) public payable nonReentrant {
         require(bid > 0, "Bid must be greater than 0");
         require(msg.value >= bid, "you should transfer at least the bid amount");
@@ -274,5 +274,32 @@ contract NFTMarket is ReentrancyGuard {
         }
 
         return ownedItems;
+    }
+
+    function getMyAuctions() public view returns (Auction[] memory) {
+        uint totalAuctionCount = _auctionIds.current();
+        console.log("totalAuctionCount ", totalAuctionCount);
+        uint usersAuctionCount = 0;
+        uint currentIndex = 0;
+
+        for (uint i = 0; i < totalAuctionCount; i++) {
+            if (idToAuction[i + 1].seller == msg.sender) {
+                usersAuctionCount++;
+            }
+        }
+
+        console.log("usersAuctionCount ", usersAuctionCount);
+
+        Auction[] memory myAuctions = new Auction[](usersAuctionCount);
+        for (uint i = 0; i < totalAuctionCount; i++) {
+            if (idToAuction[i + 1].seller == msg.sender) {
+                uint currentId = idToAuction[i + 1].itemId;
+                Auction storage currentItem = idToAuction[currentId];
+                myAuctions[currentIndex] = currentItem;
+                currentIndex++;
+            }
+        }
+
+        return myAuctions;
     }
 }
