@@ -228,6 +228,21 @@ contract NFTMarket is ReentrancyGuard {
         return items;
     }
 
+    function getOngoingAuctions() public view returns (Auction[] memory) {
+        uint auctionsCount = _auctionIds.current();
+        uint nonClaimedAuctionsCount = auctionsCount - _auctionClaimedCount.current();
+        Auction[] memory auctions = new Auction[](nonClaimedAuctionsCount);
+        uint currentIndex = 0;
+        for (uint256 i = 0; i < auctionsCount; i++) {
+            if (idToAuction[i].claimed == false && idToAuction[i].auctionEnd > block.timestamp) {
+                auctions[currentIndex] = idToAuction[i];
+                currentIndex++;
+            }
+        }
+
+        return auctions;
+    }
+
     function getOwnedNFTs() public view returns (MarketItem[] memory) {
         uint totalItemCount = _itemIds.current();
         uint ownedItemCount = 0;
