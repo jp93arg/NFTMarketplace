@@ -31,8 +31,14 @@ export default function CreateItems() {
     const { startingPrice, name, description, auctionEndDate } = formInput;
     if (!startingPrice || !name || !description || !fileUrl || !auctionEndDate) {
       alert("Please fill in all fields");
-      return
-    };
+      return;
+    }
+    let timestampAuctionDate = new Date(auctionEndDate).getTime();
+    timestampAuctionDate = (Math.floor(timestampAuctionDate) / 1000);
+    if (timestampAuctionDate < Math.floor(Date.now() / 1000)) {
+      alert("Auction end date must be in the future");
+      return;
+    }
     const data = JSON.stringify({ name, description, image: fileUrl });
     try {
       const added = await ipfsClient.add(data);
