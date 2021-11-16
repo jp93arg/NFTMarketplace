@@ -18,7 +18,8 @@ export default function Home() {
 
   async function loadNFTs(){
     // TODO: move to .env file const providerConnection = process.env.WEB3_PROVIDER_CONNECTION;
-    const provider = new ethers.providers.JsonRpcProvider("https://matic-mumbai.chainstacklabs.com");
+    // const provider = new ethers.providers.JsonRpcProvider("https://matic-mumbai.chainstacklabs.com");
+    const provider = new ethers.providers.JsonRpcProvider("");
     const tokenContract = new ethers.Contract(nftAddress, NFT.abi, provider);
     const marketContract = new ethers.Contract(nftMarketAddress, NFTMarket.abi, provider);
 
