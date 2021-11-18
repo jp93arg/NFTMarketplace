@@ -28,7 +28,7 @@ contract NFTMarket is ReentrancyGuard {
         address seller;
         uint256 startingPrice;
         uint256 highestBid;
-        address highestBidder;
+        address payable highestBidder;
         uint256 auctionEnd;
         uint256 itemId;
         bool claimed;
@@ -78,6 +78,7 @@ contract NFTMarket is ReentrancyGuard {
         address seller,
         address owner
     );
+    
 
     function createAuction(address nftContract, uint256 tokenId, uint256 startingPrice, uint256 auctionEnd) public payable nonReentrant {
         console.log("block.timestamp ", block.timestamp);
@@ -95,7 +96,7 @@ contract NFTMarket is ReentrancyGuard {
             msg.sender,
             startingPrice,
             0,
-            msg.sender,
+            payable(msg.sender),
             auctionEnd,
             tokenId,
             false
@@ -119,12 +120,20 @@ contract NFTMarket is ReentrancyGuard {
     function placeBid(uint256 tokenId, uint256 bid) public payable nonReentrant {
         require(bid > 0, "Bid must be greater than 0");
         require(msg.value >= bid, "you should transfer at least the bid amount");
+        require(msg.value > idToAuction[tokenId].highestBid, "you should transfer a value higher than the current highest bid");
         require(idToAuction[tokenId].auctionEnd > block.timestamp, "Auction has ended");
         // require(idToAuction[tokenId].highestBidder != msg.sender, "You have already placed a bid");
 
         if (idToAuction[tokenId].highestBid < bid) {
+            // here we need to refund the previous bidder
+            if (idToAuction[tokenId].highestBid > 0) {
+                // refund the ethereum funds to the previous bidder
+                bool sent = idToAuction[tokenId].highestBidder.send(idToAuction[tokenId].highestBid);
+                    //.call{value: msg.value}("");
+                require(sent, "Failed to send Ether");
+            }
             idToAuction[tokenId].highestBid = bid;
-            idToAuction[tokenId].highestBidder = msg.sender;
+            idToAuction[tokenId].highestBidder = payable(msg.sender);
             emit newHighBid(tokenId, bid, msg.sender);
         } else {
             require(false, "Bid must be greater than the current highest bid");
