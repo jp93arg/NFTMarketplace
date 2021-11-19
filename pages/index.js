@@ -10,18 +10,33 @@ import NFTMarket from '../artifacts/contracts/NFTMarket.sol/NFTMarket.json';
 
 export default function Home() {
   const [nfts, setNfts] = useState([]);
+  const [auctions, setAuctions] = useState([]);
+  const [auctionBids, setAuctionBids] = useState({});
   const [loadingState, setLoadingState] = useState('not-loaded');
 
   useEffect(() => {
-    loadNFTs();
+    load();
   }, []);
 
-  async function loadNFTs(){
+  function saveAuctionBidState({auctionId, bid}) {
+    auctionBids[auctionId] = bid;
+  }
+
+  async function load() {
     // TODO: move to .env file const providerConnection = process.env.WEB3_PROVIDER_CONNECTION;
     // const provider = new ethers.providers.JsonRpcProvider("https://matic-mumbai.chainstacklabs.com");
     const provider = new ethers.providers.JsonRpcProvider("");
     const tokenContract = new ethers.Contract(nftAddress, NFT.abi, provider);
     const marketContract = new ethers.Contract(nftMarketAddress, NFTMarket.abi, provider);
+
+    const nftDirectalesPromise = loadMarketOffers(marketContract, tokenContract);
+    const auctionsPromise = loadAuctions(marketContract, tokenContract);
+
+    await Promise.all([nftDirectalesPromise, auctionsPromise]);
+    setLoadingState('loaded');
+  };
+
+  async function loadMarketOffers(marketContract, tokenContract) {
 
     const availableItems = await marketContract.getAvailableMarketItems();
 
@@ -47,10 +62,39 @@ export default function Home() {
     console.log(`Loaded ${items.length} items: ${JSON.stringify(items)}`);
 
     setNfts(items);
-    setLoadingState('loaded');
   }
 
-  async function buyNft(nft){
+  async function loadAuctions(marketContract, tokenContract) {
+    const auctions = await marketContract.getOngoingAuctions();
+    const items = await Promise.all(auctions.map(async (i) => {
+      for (const key in Object.keys(i)) {
+        console.log(`${key}: ${i[key]}`);
+      }
+      console.log(`obj keys: ${Object.keys(i)}`);
+      const tokenUri = await tokenContract.tokenURI(i.itemId);
+      console.log(`tokenUri: ${tokenUri}`);
+      const metadata = await axios.get(tokenUri);
+      let startingPrice = ethers.utils.formatUnits(i.startingPrice.toString(), "ether");
+      let highestBid = ethers.utils.formatUnits(i.highestBid.toString(), "ether");
+      let highestBidder = i.highestBidder;
+
+      return {
+        itemId: i.itemId,
+        image: metadata && metadata.data && metadata.data.image,
+        name: metadata && metadata.data && metadata.data.name,
+        startingPrice,
+        highestBid,
+        auctionId: i.auctionId,
+        auctionEnd: i.auctionEnd,
+        claimed: i.claimed,
+        highestBidder
+      };
+    }));
+
+    setAuctions(items);
+  };
+
+  async function buyNft(nft) {
     const web3modal = new Web3Modal();
     const connection = await web3modal.connect();
     const provider = new ethers.providers.Web3Provider(connection);
@@ -63,12 +107,29 @@ export default function Home() {
 
     await transaction.wait();
 
-    loadNFTs();
+    load();
   }
-  
-  if (loadingState === "loaded" && !nfts.length) {
+
+  async function placeBid(auction) {
+    const web3modal = new Web3Modal();
+    const connection = await web3modal.connect();
+    const provider = new ethers.providers.Web3Provider(connection);
+
+    const signer = provider.getSigner();
+    const marketContract = new ethers.Contract(nftMarketAddress, NFTMarket.abi, signer);
+    const bid = auctionBids[auction.auctionId] || 0;
+    const bidAmount = ethers.utils.parseUnits(bid.toString(), "ether");
+
+    const transaction = await marketContract.placeBid(auction.itemId, bidAmount, { value: bidAmount });
+
+    await transaction.wait();
+
+    load();
+  }
+
+  if (loadingState === "loaded" && !nfts.length && !auctions.length) {
     return (
-      <h1 className="text-center">No NFTs available</h1>
+      <h1 className="text-center">No NFTs sales or auctions available</h1>
     )
   }
 
@@ -80,21 +141,51 @@ export default function Home() {
             nfts.map((nft, i) => {
               console.log(JSON.stringify(nft));
               return (
-              <div key={i} className="border shadow rounded-xl overflow-hidden">
-                <img src={nft.image} />
-                <div className="p-4">
-                  <p style={{ height: '64px' }} className="text-2xl font-semibold">{nft.name}</p>
-                  <div style={{ height: '70px', overflow: 'hidden' }}>
-                    <p className="text-black-400">{nft.description}</p>
+                <div key={i} className="border shadow rounded-xl overflow-hidden">
+                  <img src={nft.image} />
+                  <div className="p-4">
+                    <p style={{ height: '64px' }} className="text-2xl font-semibold">{nft.name}</p>
+                    <div style={{ height: '70px', overflow: 'hidden' }}>
+                      <p className="text-black-400">{nft.description}</p>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-black">
+                    <p className="text-2xl mb-4 font-bold text-white">{nft.price} Matic</p>
+                    <button className="w-full bg-red-500 text-white font-bold py-2 px-12 rounded" onClick={() => buyNft(nft)}>Purchase item</button>
                   </div>
                 </div>
-                <div className="p-4 bg-black">
-                  <p className="text-2xl mb-4 font-bold text-white">{nft.price} Matic</p>
-                  <button className="w-full bg-red-500 text-white font-bold py-2 px-12 rounded" onClick={() => buyNft(nft)}>Purchase item</button>
-                </div>
-              </div>
-            )})
+              )
+            })
           }
+          {auctions.map((auction, i) => {
+            let auctionEndDate = ethers.BigNumber.from(auction.auctionEnd).toNumber();
+            auctionEndDate = new Date(auctionEndDate * 1000);
+            auctionEndDate = auctionEndDate.getTime();
+            auctionEndDate = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(auctionEndDate);
+            return (
+              <div key={i} className="bg-grey rounded shadow-md p-4">
+                <img src={auction.image} className="rounded" />
+                <div className="p-4 bg-black">
+                  <p className="text text-white">Starting Price: {auction.startingPrice} Matic</p>
+                  <p className="text text-white">Highest Bid: {auction.highestBid} Matic</p>
+                </div>
+                <div className="p-4 bg-red-500">
+                  <p className="text text-white">Auction Ends: {auctionEndDate}</p>
+                  <div className="border-b-2 border-black-500"></div>
+                  <p className="text text-white">Highest Bidder: {auction.highestBidder}</p>
+                </div>
+                <div className="p-4 bg-black">
+                  <input 
+                    type="number" 
+                    className="w-full bg-red-500 text-white font-bold py-2 px-12 rounded" 
+                    placeholder="Enter bid amount" 
+                    onChange={e => saveAuctionBidState({ auctionId: auction.auctionId, bid: e.target.value })}
+                  />
+                  <button className="w-full bg-red-500 text-white font-bold py-2 px-12 rounded" onClick={() => placeBid(auction)}>Place bid</button>
+                </div>
+              </div>)
+          }
+          )}
         </div>
       </div>
     </div>
