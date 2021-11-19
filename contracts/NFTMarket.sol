@@ -1,5 +1,5 @@
 pragma solidity ^0.8.4;
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 // TODO: allow same token id for different NFT contracts
 // TODO: test functions with invalid/non-existent token id
@@ -45,7 +45,8 @@ contract NFTMarket is ReentrancyGuard {
     }
 
     mapping(uint256 => MarketItem) private idToMarketItem;
-    mapping(uint256 => Auction) private idToAuction;
+    mapping(uint256 => Auction) private tokenidToAuction;
+    mapping(uint256 => uint256) private auctionIdToTokenId;
 
     event MarketItemCreated (
         uint indexed itemId,
@@ -81,8 +82,6 @@ contract NFTMarket is ReentrancyGuard {
     
 
     function createAuction(address nftContract, uint256 tokenId, uint256 startingPrice, uint256 auctionEnd) public payable nonReentrant {
-        console.log("block.timestamp ", block.timestamp);
-        console.log("auctionEnd ", auctionEnd);
         require(startingPrice > 0, "Starting price must be greater than 0");
         require(auctionEnd > 0, "auctionEnd must be greater than 0");
         require(auctionEnd > block.timestamp, "auctionEnd must be in the future");
@@ -90,7 +89,7 @@ contract NFTMarket is ReentrancyGuard {
         _auctionIds.increment();
         uint256 auctionId = _auctionIds.current();
 
-        idToAuction[tokenId] = Auction(
+        tokenidToAuction[tokenId] = Auction(
             auctionId,
             nftContract,
             msg.sender,
@@ -101,6 +100,8 @@ contract NFTMarket is ReentrancyGuard {
             tokenId,
             false
         );
+
+        auctionIdToTokenId[auctionId] = tokenId;
 
         IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
 
@@ -120,20 +121,20 @@ contract NFTMarket is ReentrancyGuard {
     function placeBid(uint256 tokenId, uint256 bid) public payable nonReentrant {
         require(bid > 0, "Bid must be greater than 0");
         require(msg.value >= bid, "you should transfer at least the bid amount");
-        require(msg.value > idToAuction[tokenId].highestBid, "you should transfer a value higher than the current highest bid");
-        require(idToAuction[tokenId].auctionEnd > block.timestamp, "Auction has ended");
-        // require(idToAuction[tokenId].highestBidder != msg.sender, "You have already placed a bid");
+        require(msg.value > tokenidToAuction[tokenId].highestBid, "you should transfer a value higher than the current highest bid");
+        require(tokenidToAuction[tokenId].auctionEnd > block.timestamp, "Auction has ended");
+        // require(tokenidToAuction[tokenId].highestBidder != msg.sender, "You have already placed a bid");
 
-        if (idToAuction[tokenId].highestBid < bid) {
+        if (tokenidToAuction[tokenId].highestBid < bid) {
             // here we need to refund the previous bidder
-            if (idToAuction[tokenId].highestBid > 0) {
+            if (tokenidToAuction[tokenId].highestBid > 0) {
                 // refund the ethereum funds to the previous bidder
-                bool sent = idToAuction[tokenId].highestBidder.send(idToAuction[tokenId].highestBid);
+                bool sent = tokenidToAuction[tokenId].highestBidder.send(tokenidToAuction[tokenId].highestBid);
                     //.call{value: msg.value}("");
                 require(sent, "Failed to send Ether");
             }
-            idToAuction[tokenId].highestBid = bid;
-            idToAuction[tokenId].highestBidder = payable(msg.sender);
+            tokenidToAuction[tokenId].highestBid = bid;
+            tokenidToAuction[tokenId].highestBidder = payable(msg.sender);
             emit newHighBid(tokenId, bid, msg.sender);
         } else {
             require(false, "Bid must be greater than the current highest bid");
@@ -141,11 +142,11 @@ contract NFTMarket is ReentrancyGuard {
     }
 
     function claimAuctionItem(uint256 tokenId) public payable nonReentrant {
-        require(idToAuction[tokenId].auctionEnd < block.timestamp, "Auction has not ended");
-        require(idToAuction[tokenId].highestBidder == msg.sender, "You must be the highest bidder to claim the item");
+        require(tokenidToAuction[tokenId].auctionEnd < block.timestamp, "Auction has not ended");
+        require(tokenidToAuction[tokenId].highestBidder == msg.sender, "You must be the highest bidder to claim the item");
 
-        Auction memory auction = idToAuction[tokenId];
-        idToAuction[tokenId].claimed = true;
+        Auction memory auction = tokenidToAuction[tokenId];
+        tokenidToAuction[tokenId].claimed = true;
         _auctionClaimedCount.increment();
 
         IERC721(auction.nftContract).transferFrom(address(this), msg.sender, tokenId);
@@ -163,8 +164,8 @@ contract NFTMarket is ReentrancyGuard {
         Auction[] memory auctions = new Auction[](nonClaimedAuctionsCount);
         uint currentIndex = 0;
         for (uint256 i = 0; i < auctionsCount; i++) {
-            if (idToAuction[i].claimed == false) {
-                auctions[currentIndex] = idToAuction[i];
+            if (tokenidToAuction[i].claimed == false) {
+                auctions[currentIndex] = tokenidToAuction[i];
                 currentIndex++;
             }
         }
@@ -178,8 +179,8 @@ contract NFTMarket is ReentrancyGuard {
         Auction[] memory auctions = new Auction[](claimedAuctionsCount);
         uint currentIndex = 0;
         for (uint256 i = 0; i < auctionsCount; i++) {
-            if (idToAuction[i].claimed == true) {
-                auctions[currentIndex] = idToAuction[i];
+            if (tokenidToAuction[i].claimed == true) {
+                auctions[currentIndex] = tokenidToAuction[i];
                 currentIndex++;
             }
         }
@@ -188,7 +189,7 @@ contract NFTMarket is ReentrancyGuard {
     }
 
     function getAuctionItem(uint256 itemId) public view returns (Auction memory) {
-        return idToAuction[itemId];
+        return tokenidToAuction[itemId];
     }
 
     function createMarketItem(address nftContract, uint256 tokenId, uint256 price) public payable nonReentrant {
@@ -242,9 +243,11 @@ contract NFTMarket is ReentrancyGuard {
         uint nonClaimedAuctionsCount = auctionsCount - _auctionClaimedCount.current();
         Auction[] memory auctions = new Auction[](nonClaimedAuctionsCount);
         uint currentIndex = 0;
-        for (uint256 i = 0; i < auctionsCount; i++) {
-            if (idToAuction[i].claimed == false && idToAuction[i].auctionEnd > block.timestamp) {
-                auctions[currentIndex] = idToAuction[i];
+        for (uint256 i = 1; i <= auctionsCount; i++) {
+            uint256 tokenId = auctionIdToTokenId[i];
+            if (tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd > block.timestamp) {
+                Auction storage currentAuction = tokenidToAuction[tokenId];
+                auctions[currentIndex] = currentAuction;
                 currentIndex++;
             }
         }
@@ -302,24 +305,21 @@ contract NFTMarket is ReentrancyGuard {
 
     function getMyAuctions() public view returns (Auction[] memory) {
         uint totalAuctionCount = _auctionIds.current();
-        console.log("totalAuctionCount ", totalAuctionCount);
         uint usersAuctionCount = 0;
         uint currentIndex = 0;
 
-        for (uint i = 0; i < totalAuctionCount; i++) {
-            if (idToAuction[i + 1].seller == msg.sender) {
+        for (uint i = 1; i <= totalAuctionCount; i++) {
+            uint tokenId = auctionIdToTokenId[i];
+            if (tokenidToAuction[tokenId].seller == msg.sender) {
                 usersAuctionCount++;
             }
         }
 
-        console.log("usersAuctionCount ", usersAuctionCount);
-
         Auction[] memory myAuctions = new Auction[](usersAuctionCount);
-        for (uint i = 0; i < totalAuctionCount; i++) {
-            if (idToAuction[i + 1].seller == msg.sender) {
-                uint currentId = idToAuction[i + 1].itemId;
-                Auction storage currentItem = idToAuction[currentId];
-                myAuctions[currentIndex] = currentItem;
+        for (uint i = 1; i <= totalAuctionCount; i++) {
+            uint tokenId = auctionIdToTokenId[i];
+            if (tokenidToAuction[tokenId].seller == msg.sender) {
+                myAuctions[currentIndex] = tokenidToAuction[tokenId];
                 currentIndex++;
             }
         }
