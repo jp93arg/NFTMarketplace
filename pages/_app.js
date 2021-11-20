@@ -15,7 +15,7 @@ function MyApp({ Component, pageProps }) {
             <a className="mr-4 text-red-500 hover:text-blue-700">Sell NFT</a>
           </Link>
           <Link href="/create-auction">
-            <a className="mr-4 text-red-500 hover:text-blue-700">Creat NFT Auction</a>
+            <a className="mr-4 text-red-500 hover:text-blue-700">Create NFT Auction</a>
           </Link>
           <Link href="/owner-dashboard">
             <a className="mr-4 text-red-500 hover:text-blue-700">Owner Dashboard</a>
