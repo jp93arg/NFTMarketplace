@@ -43,8 +43,6 @@ export default function Home() {
     const items = await Promise.all(availableItems.map(async (i) => {
       const tokenUri = await tokenContract.tokenURI(i.tokenId);
       const metadata = await axios.get(tokenUri);
-      console.log("tokenUri", tokenUri);
-      console.log(metadata.data);
       let price = ethers.utils.formatUnits(i.price.toString(), "ether");
       let item = {
         price,
@@ -59,20 +57,13 @@ export default function Home() {
       return item;
     }));
 
-    console.log(`Loaded ${items.length} items: ${JSON.stringify(items)}`);
-
     setNfts(items);
   }
 
   async function loadAuctions(marketContract, tokenContract) {
     const auctions = await marketContract.getOngoingAuctions();
     const items = await Promise.all(auctions.map(async (i) => {
-      for (const key in Object.keys(i)) {
-        console.log(`${key}: ${i[key]}`);
-      }
-      console.log(`obj keys: ${Object.keys(i)}`);
       const tokenUri = await tokenContract.tokenURI(i.itemId);
-      console.log(`tokenUri: ${tokenUri}`);
       const metadata = await axios.get(tokenUri);
       let startingPrice = ethers.utils.formatUnits(i.startingPrice.toString(), "ether");
       let highestBid = ethers.utils.formatUnits(i.highestBid.toString(), "ether");
@@ -139,7 +130,6 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
           {
             nfts.map((nft, i) => {
-              console.log(JSON.stringify(nft));
               return (
                 <div key={i} className="border shadow rounded-xl overflow-hidden">
                   <img src={nft.image} />

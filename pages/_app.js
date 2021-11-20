@@ -23,6 +23,9 @@ function MyApp({ Component, pageProps }) {
           <Link href="/creator-dashboard">
             <a className="mr-4  text-red-500 hover:text-blue-700">Creator Dashboard</a>
           </Link>
+          <Link href="/claim-auction">
+            <a className="mr-4  text-red-500 hover:text-blue-700">Claim Auctions</a>
+          </Link>
         </div>
       </nav>
       <Component {...pageProps} />
