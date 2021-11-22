@@ -3,13 +3,26 @@ import { ethers } from "ethers";
 import { create as ipfsHttpClient } from "ipfs-http-client";
 import { useRouter } from "next/router";
 import Web3Modal from "web3modal";
-import { nftAddress, nftMarketAddress } from '../config';
+
 import NFT from '../artifacts/contracts/NFT.sol/NFT.json';
 import NFTMarket from '../artifacts/contracts/NFTMarket.sol/NFTMarket.json';
 
-const ipfsClient = ipfsHttpClient("https://ipfs.infura.io:5001/api/v0");
+import loadConfig from "./loadConfig";
 
-export default function CreateItems() {
+export async function getStaticProps() {
+  const config = await loadConfig();
+  return {props: config};
+}
+
+export default function CreateItems(config) {
+  const network = config.network;
+  const nftAddress = config.deployments[network].nftContract;
+  const nftMarketAddress = config.deployments[network].nftMarketplace;
+  const currency = config.currency[network] || "MATIC";
+
+  const ipfsClient = ipfsHttpClient(config.ipfsApiUrl);
+
+  const startingPricePlaceholder = `Starting price in ${currency}`;
   const [fileUrl, setFileUrl] = useState(null);
   const [formInput, setFormInput] = useState({ startingPrice: "", name: "", description: "", auctionEndDate: "" });
   const router = useRouter();
@@ -94,7 +107,7 @@ export default function CreateItems() {
           onChange={e => setFormInput({ ...formInput, description: e.target.value })}
         />
         <input
-          placeholder="Starting price (in Matic)"
+          placeholder={startingPricePlaceholder} 
           className="mt-2 border rounded p-4"
           onChange={e => setFormInput({ ...formInput, startingPrice: e.target.value })}
         />

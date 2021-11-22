@@ -2,13 +2,22 @@ import { ethers } from 'ethers';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Web3Modal from 'web3modal';
-import { nftAddress, nftMarketAddress } from '../config';
-import styles from '../styles/Home.module.css'
 
 import NFT from '../artifacts/contracts/NFT.sol/NFT.json';
 import NFTMarket from '../artifacts/contracts/NFTMarket.sol/NFTMarket.json';
 
-export default function ListMyAssets() {
+import loadConfig from "./loadConfig";
+
+export async function getStaticProps() {
+  const config = await loadConfig();
+  return {props: config};
+}
+
+export default function ListMyAssets(config) {
+    const network = config.network;
+    const nftAddress = config.deployments[network].nftContract;
+    const nftMarketAddress = config.deployments[network].nftMarketplace;
+    const currency = config.currency[network] || "MATIC";
     const [nfts, setNfts] = useState([]);
     const [auctions, setAuctions] = useState([]);
     const [soldNfts, setSoldNfts] = useState([]);
@@ -34,13 +43,6 @@ export default function ListMyAssets() {
     }
 
     async function loadAuctions(marketContract, tokenContract, signer) {
-        // const web3modal = new Web3Modal();
-        // const connection = await web3modal.connect();
-        // const provider = new ethers.providers.Web3Provider(connection);
-        // const signer = provider.getSigner();
-
-        // const marketContract = new ethers.Contract(nftMarketAddress, NFTMarket.abi, signer);
-        // const tokenContract = new ethers.Contract(nftAddress, NFT.abi, signer);
         const data = await marketContract.getMyAuctions();
         console.log(`data is ${JSON.stringify(data)}`);
 
@@ -64,8 +66,6 @@ export default function ListMyAssets() {
 
         const nonClaimedItems = items.filter(i => !i.claimed);
         setAuctions(nonClaimedItems);
-        console.log(`Loaded ${nonClaimedItems.length} auctions`);
-        console.log(`nonClaimedItems: ${JSON.stringify(nonClaimedItems)}`);
 
         if (loadingState === "loaded" && !nfts.length) {
             return (
@@ -75,13 +75,6 @@ export default function ListMyAssets() {
     }
 
     async function loadNFTs(marketContract, tokenContract, signer) {
-        // const web3modal = new Web3Modal();
-        // const connection = await web3modal.connect();
-        // const provider = new ethers.providers.Web3Provider(connection);
-        // const signer = provider.getSigner();
-
-        // const marketContract = new ethers.Contract(nftMarketAddress, NFTMarket.abi, signer);
-        // const tokenContract = new ethers.Contract(nftAddress, NFT.abi, signer);
         const data = await marketContract.getMyNFTForSale();
 
         const items = await Promise.all(data.map(async (i) => {
@@ -121,7 +114,7 @@ export default function ListMyAssets() {
                             <div key={i} className="bg-grey rounded shadow-md p-4">
                                 <img src={nft.image} className="rounded" />
                                 <div className="p-4 bg-black">
-                                    <p className="text-2xl text-white">Price {nft.price} Matic</p>
+                                    <p className="text-2xl text-white">Price {nft.price} {currency}</p>
                                 </div>
                             </div>)
                     )}
@@ -134,15 +127,15 @@ export default function ListMyAssets() {
                             <div key={i} className="bg-grey rounded shadow-md p-4">
                                 <img src={auction.image} className="rounded" />
                                 <div className="p-4 bg-black">
-                                    <p className="text text-white">Starting Price: {auction.startingPrice} Matic</p>
-                                    <p className="text text-white">Highest Bid: {auction.highestBid} Matic</p>
+                                    <p className="text text-white">Starting Price: {auction.startingPrice} {currency}</p>
+                                    <p className="text text-white">Highest Bid: {auction.highestBid} {currency}</p>
                                 </div>
                                 <div className="p-4 bg-red-500">
                                     {/* here we will show the auction end date as date format */}
                                     <p className="text text-white">Auction Ends: {auctionEndDate}</p>
                                     {/* new line as separation */}
                                     <div className="border-b-2 border-black-500"></div>
-                                    <p className="text text-white">Highest Bid: {auction.highestBid} Matic</p>
+                                    <p className="text text-white">Highest Bid: {auction.highestBid} {currency}</p>
                                 </div>
                             </div>)}
                     )}
@@ -158,7 +151,7 @@ export default function ListMyAssets() {
                                                 <div className="p-4 bg-black">
                                                 {/* here we will show the nft item id in a small size font */}
                                                     <p className="small text-white">TokenId: {nft.tokenId}</p>
-                                                    <p className="text-1xl text-white">Price {nft.price} Matic</p>
+                                                    <p className="text-1xl text-white">Price {nft.price} {currency}</p>
                                                 </div>
                                             </div>)
                                         )

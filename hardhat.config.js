@@ -25,7 +25,7 @@ module.exports = {
       chainId: 1337,
     },
     mumbai: {
-      url: "https://matic-mumbai.chainstacklabs.com", //TODO: read from .env file
+      url: "https://matic-mumbai.chainstacklabs.com",
       accounts : [privateKey]
     },
     mainnet: {

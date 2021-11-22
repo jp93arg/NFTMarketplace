@@ -2,13 +2,22 @@ import { ethers } from 'ethers';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Web3Modal from 'web3modal';
-import { nftAddress, nftMarketAddress } from '../config';
-import styles from '../styles/Home.module.css'
 
 import NFT from '../artifacts/contracts/NFT.sol/NFT.json';
 import NFTMarket from '../artifacts/contracts/NFTMarket.sol/NFTMarket.json';
 
-export default function ListMyAssets() {
+import loadConfig from "./loadConfig";
+
+export async function getStaticProps() {
+  const config = await loadConfig();
+  return {props: config};
+}
+
+export default function ListMyAssets(config) {
+    const network = config.network;
+    const nftAddress = config.deployments[network].nftContract;
+    const nftMarketAddress = config.deployments[network].nftMarketplace;
+    const currency = config.currency[network] || "MATIC";
     const [nfts, setNfts] = useState([]);
     const [loadingState, setLoadingState] = useState('not-loaded');
     useEffect(() => {
@@ -44,13 +53,11 @@ export default function ListMyAssets() {
 
         setNfts(items);
         setLoadingState('loaded');
-
-        console.log("loadingState is: ", loadingState);
-        console.log("nfts.length is: ", nfts.length);
-
+        console.log(`loadingState: ${loadingState}`);
+        console.log(`nfts.length: ${nfts.length}`);
         if (loadingState != "loaded" && !nfts.length) {
             return (
-                <h1 className="text-center text-black">You don't have NFTs yet!</h1>
+                <h1 className="text-center text-black">You do not have NFTs yet!</h1>
             )
         }
     }
@@ -61,9 +68,9 @@ export default function ListMyAssets() {
                 <div className="grid grid-cols-1 sm: grid-cols-2 md: grid-cols-3 lg: grid-cols-4 gap-4">
                     {nfts.map((nft, i) => (
                         <div key={i} className="bg-grey rounded shadow-md p-4">
-                            <img src={nft.image} className="rounded" />
+                            <img src={nft.image} className="rounded"/>
                             <div className="p-4 bg-black">
-                                <p className="text-2xl text-white">Price {nft.price} Matic</p>
+                                <p className="text-2xl text-white">Price {nft.price} {currency}</p>
                             </div>
                         </div>))}
                 </div>

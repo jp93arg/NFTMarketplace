@@ -2,16 +2,26 @@ import { ethers } from 'ethers';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Web3Modal from 'web3modal';
-import { nftAddress, nftMarketAddress } from '../config';
-import styles from '../styles/Home.module.css'
 
 import NFT from '../artifacts/contracts/NFT.sol/NFT.json';
 import NFTMarket from '../artifacts/contracts/NFTMarket.sol/NFTMarket.json';
 
-export default function Home() {
+import loadConfig from "./loadConfig";
+
+export async function getStaticProps() {
+  const config = await loadConfig();
+  return {props: config};
+}
+
+export default function Home(config) {
+  const network = config.network;
+  const nftAddress = config.deployments[network].nftContract;
+  const nftMarketAddress = config.deployments[network].nftMarketplace;
+  const providerUrl = config.web3Providers[network].url;
+  const currency = config.currency[network] || "MATIC";
   const [nfts, setNfts] = useState([]);
   const [auctions, setAuctions] = useState([]);
-  const [auctionBids, setAuctionBids] = useState({});
+  const [auctionBids, _] = useState({});
   const [loadingState, setLoadingState] = useState('not-loaded');
 
   useEffect(() => {
@@ -23,9 +33,7 @@ export default function Home() {
   }
 
   async function load() {
-    // TODO: move to .env file const providerConnection = process.env.WEB3_PROVIDER_CONNECTION;
-    // const provider = new ethers.providers.JsonRpcProvider("https://matic-mumbai.chainstacklabs.com");
-    const provider = new ethers.providers.JsonRpcProvider("");
+    const provider = new ethers.providers.JsonRpcProvider(providerUrl);
     const tokenContract = new ethers.Contract(nftAddress, NFT.abi, provider);
     const marketContract = new ethers.Contract(nftMarketAddress, NFTMarket.abi, provider);
 
@@ -140,7 +148,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="p-4 bg-black">
-                    <p className="text-2xl mb-4 font-bold text-white">{nft.price} Matic</p>
+                    <p className="text-2xl mb-4 font-bold text-white">{nft.price} {currency}</p>
                     <button className="w-full bg-red-500 text-white font-bold py-2 px-12 rounded" onClick={() => buyNft(nft)}>Purchase item</button>
                   </div>
                 </div>
@@ -156,8 +164,8 @@ export default function Home() {
               <div key={i} className="bg-grey rounded shadow-md p-4">
                 <img src={auction.image} className="rounded" />
                 <div className="p-4 bg-black">
-                  <p className="text text-white">Starting Price: {auction.startingPrice} Matic</p>
-                  <p className="text text-white">Highest Bid: {auction.highestBid} Matic</p>
+                  <p className="text text-white">Starting Price: {auction.startingPrice} {currency}</p>
+                  <p className="text text-white">Highest Bid: {auction.highestBid} {currency}</p>
                 </div>
                 <div className="p-4 bg-red-500">
                   <p className="text text-white">Auction Ends: {auctionEndDate}</p>
