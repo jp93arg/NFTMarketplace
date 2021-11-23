@@ -327,22 +327,23 @@ contract NFTMarket is ReentrancyGuard {
         return myAuctions;
     }
 
-    function getAuctionClaims() public view returns (Auction[] memory) {
+    function getAuctionClaims(address caller) public view returns (Auction[] memory) {
         uint totalAuctionCount = _auctionIds.current();
         uint usersAuctionCount = 0;
         uint currentIndex = 0;
+        uint tokenId;
 
         for (uint i = 1; i <= totalAuctionCount; i++) {
-            uint tokenId = auctionIdToTokenId[i];
-            if (tokenidToAuction[tokenId].highestBidder == msg.sender && tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd > block.timestamp) {
+            tokenId = auctionIdToTokenId[i];
+            if (tokenidToAuction[tokenId].highestBidder == caller && tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd < block.timestamp) {
                 usersAuctionCount++;
             }
         }
 
         Auction[] memory auctionsToClaim = new Auction[](usersAuctionCount);
         for (uint i = 1; i <= totalAuctionCount; i++) {
-            uint tokenId = auctionIdToTokenId[i];
-            if (tokenidToAuction[tokenId].highestBidder == msg.sender && tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd > block.timestamp) {
+            tokenId = auctionIdToTokenId[i];
+            if (tokenidToAuction[tokenId].highestBidder == caller && tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd < block.timestamp) {
                 auctionsToClaim[currentIndex] = tokenidToAuction[tokenId];
                 currentIndex++;
             }

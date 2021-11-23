@@ -39,7 +39,14 @@ export default function Home(config) {
 
 
   async function loadAuctions(marketContract, tokenContract) {
-    const auctions = await marketContract.getAuctionClaims();
+    const web3modal = new Web3Modal();
+    const connection = await web3modal.connect();
+    const provider = new ethers.providers.Web3Provider(connection);
+    const signer = await provider.listAccounts();
+    const address = String(signer);
+
+    const auctions = await marketContract.getAuctionClaims(address);
+    console.log(`auctions.lengh ${auctions.length}`)
     const items = await Promise.all(auctions.map(async (i) => {
       console.log(`obj keys: ${Object.keys(i)}`);
       const tokenUri = await tokenContract.tokenURI(i.itemId);
