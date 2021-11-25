@@ -15,7 +15,6 @@ export async function getStaticProps() {
 }
 
 export default function CreateItems(config) {
-  console.log(`Config: ${JSON.stringify(config)}`);
   const network = config.network;
   const nftAddress = config.deployments[network].nftContract;
   const nftMarketAddress = config.deployments[network].nftMarketplace;

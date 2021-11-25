@@ -16,12 +16,23 @@ module.exports = () => {
             },
             localhost: {
                 url: process.env.LOCALHOST_NODE_URL || "",
+            },
+            rinkeby: {
+                url: process.env.RINKEBY_NODE_URL || "",
             }
         },
         deployments: {
             localhost: {
                 nftContract: process.env.LOCAL_NFT_ADDRESS,
                 nftMarketplace: process.env.LOCAL_NFT_MARKETPLACE_ADDRESS,
+            },
+            mumbai: {
+                nftContract: process.env.MUMBAI_NFT_ADDRESS,
+                nftMarketplace: process.env.MUMBAI_NFT_MARKETPLACE_ADDRESS,
+            },
+            rinkeby: {
+                nftContract: process.env.RINKEBY_NFT_ADDRESS,
+                nftMarketplace: process.env.RINKEBY_NFT_MARKETPLACE_ADDRESS,
             }
         }
     };

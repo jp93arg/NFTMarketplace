@@ -46,11 +46,8 @@ export default function Home(config) {
     const address = String(signer);
 
     const auctions = await marketContract.getAuctionClaims(address);
-    console.log(`auctions.lengh ${auctions.length}`)
     const items = await Promise.all(auctions.map(async (i) => {
-      console.log(`obj keys: ${Object.keys(i)}`);
       const tokenUri = await tokenContract.tokenURI(i.itemId);
-      console.log(`tokenUri: ${tokenUri}`);
       const metadata = await axios.get(tokenUri);
       let startingPrice = ethers.utils.formatUnits(i.startingPrice.toString(), "ether");
       let highestBid = ethers.utils.formatUnits(i.highestBid.toString(), "ether");

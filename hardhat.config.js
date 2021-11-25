@@ -28,6 +28,10 @@ module.exports = {
       url: "https://matic-mumbai.chainstacklabs.com",
       accounts : [privateKey]
     },
+    rinkeby: {
+      url: "*****place your node url here*****",
+      accounts : [privateKey]
+    },
     mainnet: {
       url: "wss://ws-matic-mainnet.chainstacklabs.com",
       accounts: [privateKey]

@@ -44,7 +44,6 @@ export default function ListMyAssets(config) {
 
     async function loadAuctions(marketContract, tokenContract, signer) {
         const data = await marketContract.getMyAuctions();
-        console.log(`data is ${JSON.stringify(data)}`);
 
         const items = await Promise.all(data.map(async (i) => {
             const tokenUri = await tokenContract.tokenURI(i.itemId);
