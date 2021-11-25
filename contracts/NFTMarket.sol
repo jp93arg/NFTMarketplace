@@ -32,6 +32,7 @@ contract NFTMarket is ReentrancyGuard {
         uint256 auctionEnd;
         uint256 itemId;
         bool claimed;
+        bool exists;
     }
 
     struct MarketItem {
@@ -42,9 +43,11 @@ contract NFTMarket is ReentrancyGuard {
         address payable owner;
         uint256 price;
         bool isSold;
+        bool exists;
     }
 
-    mapping(uint256 => MarketItem) private idToMarketItem;
+    mapping(uint256 => MarketItem) private sellIdToMarketItem;
+    mapping(uint256 => uint256) private tokenIdToSellId;
     mapping(uint256 => Auction) private tokenidToAuction;
     mapping(uint256 => uint256) private auctionIdToTokenId;
 
@@ -98,7 +101,8 @@ contract NFTMarket is ReentrancyGuard {
             payable(msg.sender),
             auctionEnd,
             tokenId,
-            false
+            false,
+            true
         );
 
         auctionIdToTokenId[auctionId] = tokenId;
@@ -130,7 +134,6 @@ contract NFTMarket is ReentrancyGuard {
             if (tokenidToAuction[tokenId].highestBid > 0) {
                 // refund the ethereum funds to the previous bidder
                 bool sent = tokenidToAuction[tokenId].highestBidder.send(tokenidToAuction[tokenId].highestBid);
-                    //.call{value: msg.value}("");
                 require(sent, "Failed to send Ether");
             }
             tokenidToAuction[tokenId].highestBid = bid;
@@ -142,6 +145,7 @@ contract NFTMarket is ReentrancyGuard {
     }
 
     function claimAuctionItem(uint256 tokenId) public payable nonReentrant {
+        require(tokenidToAuction[tokenId].exists, "Auction not found");
         require(tokenidToAuction[tokenId].auctionEnd < block.timestamp, "Auction has not ended");
         require(tokenidToAuction[tokenId].highestBidder == msg.sender, "You must be the highest bidder to claim the item");
 
@@ -156,21 +160,6 @@ contract NFTMarket is ReentrancyGuard {
 
     function getListingPrice() public view returns (uint256) {
         return listingPrice;
-    }
-
-    function listCurrentAuctions() public view returns (Auction[] memory) {
-        uint auctionsCount = _auctionIds.current();
-        uint nonClaimedAuctionsCount = auctionsCount - _auctionClaimedCount.current();
-        Auction[] memory auctions = new Auction[](nonClaimedAuctionsCount);
-        uint currentIndex = 0;
-        for (uint256 i = 0; i < auctionsCount; i++) {
-            if (tokenidToAuction[i].claimed == false) {
-                auctions[currentIndex] = tokenidToAuction[i];
-                currentIndex++;
-            }
-        }
-
-        return auctions;
     }
 
     function listClaimedAuctions() public view returns (Auction[] memory) {
@@ -189,6 +178,7 @@ contract NFTMarket is ReentrancyGuard {
     }
 
     function getAuctionItem(uint256 itemId) public view returns (Auction memory) {
+        require(tokenidToAuction[itemId].exists, "Auction not found");
         return tokenidToAuction[itemId];
     }
 
@@ -199,24 +189,24 @@ contract NFTMarket is ReentrancyGuard {
         _itemIds.increment();
         uint256 itemId = _itemIds.current();
 
-        idToMarketItem[itemId] = MarketItem(itemId, nftContract, tokenId, payable(msg.sender), payable(address(0)), price, false);
+        sellIdToMarketItem[itemId] = MarketItem(itemId, nftContract, tokenId, payable(msg.sender), payable(address(0)), price, false, true);
+        tokenIdToSellId[tokenId] = itemId;
 
         IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
 
         emit MarketItemCreated(itemId, nftContract, tokenId, msg.sender, address(0), price, false);
     }
 
-    function createMarketSale(address nftContract, uint256 itemId) public payable nonReentrant {
-        uint itemPrice = idToMarketItem[itemId].price;
+    function createMarketSale(address nftContract, uint256 tokenId) public payable nonReentrant {
+        uint sellId = tokenIdToSellId[tokenId];
+        uint itemPrice = sellIdToMarketItem[sellId].price;
         require(msg.value >= itemPrice, "You must pay at least the listing price");
 
-        uint tokenId = idToMarketItem[itemId].tokenId;
-
-        idToMarketItem[itemId].seller.transfer(msg.value);
+        sellIdToMarketItem[sellId].seller.transfer(msg.value);
         IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
 
-        idToMarketItem[itemId].isSold = true;
-        idToMarketItem[itemId].owner = payable(msg.sender);
+        sellIdToMarketItem[sellId].isSold = true;
+        sellIdToMarketItem[sellId].owner = payable(msg.sender);
         _itemsSold.increment();
         payable(owner).transfer(listingPrice);
     }
@@ -227,9 +217,8 @@ contract NFTMarket is ReentrancyGuard {
         MarketItem[] memory items = new MarketItem[](availableItemsCount);
         uint currentIndex = 0;
         for (uint i = 0; i < itemCount; i++) {
-            if (idToMarketItem[i +1].isSold == false) {
-                uint currentId = idToMarketItem[i +1].itemId;
-                MarketItem storage currentItem = idToMarketItem[currentId];
+            if (sellIdToMarketItem[i +1].exists == true && sellIdToMarketItem[i +1].isSold == false) {
+                MarketItem storage currentItem = sellIdToMarketItem[i +1];
                 items[currentIndex] = currentItem;
                 currentIndex++;
             }
@@ -245,7 +234,7 @@ contract NFTMarket is ReentrancyGuard {
         uint currentIndex = 0;
         for (uint256 i = 1; i <= auctionsCount; i++) {
             uint256 tokenId = auctionIdToTokenId[i];
-            if (tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd > block.timestamp) {
+            if (tokenidToAuction[tokenId].exists == true && tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd > block.timestamp) {
                 Auction storage currentAuction = tokenidToAuction[tokenId];
                 auctions[currentIndex] = currentAuction;
                 currentIndex++;
@@ -255,22 +244,22 @@ contract NFTMarket is ReentrancyGuard {
         return auctions;
     }
 
-    function getOwnedNFTs() public view returns (MarketItem[] memory) {
+    function getOwnedNFTs(address caller) public view returns (MarketItem[] memory) {
         uint totalItemCount = _itemIds.current();
         uint ownedItemCount = 0;
         uint currentIndex = 0;
 
         for (uint i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i +1].owner == msg.sender) {
+            if (sellIdToMarketItem[i +1].exists == true && sellIdToMarketItem[i +1].owner == caller) {
                 ownedItemCount++;
             }
         }
 
         MarketItem[] memory ownedItems = new MarketItem[](ownedItemCount);
         for (uint i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i +1].owner == msg.sender) {
+            if (sellIdToMarketItem[i +1].exists == true && sellIdToMarketItem[i +1].owner == caller) {
                 uint currentId = i + 1;
-                MarketItem storage currentItem = idToMarketItem[currentId];
+                MarketItem storage currentItem = sellIdToMarketItem[currentId];
                 ownedItems[currentIndex] = currentItem;
                 currentIndex++;
             }
@@ -279,22 +268,47 @@ contract NFTMarket is ReentrancyGuard {
         return ownedItems;
     }
 
+    function getClaimedAuctions(address caller) public view returns (Auction[] memory) {
+        uint totalAuctionCount = _auctionIds.current();
+        uint usersAuctionCount = 0;
+        uint currentIndex = 0;
+        uint tokenId;
+
+        for (uint i = 1; i <= totalAuctionCount; i++) {
+            tokenId = auctionIdToTokenId[i];
+            if (tokenidToAuction[tokenId].highestBidder == caller && tokenidToAuction[tokenId].claimed == true) {
+                usersAuctionCount++;
+            }
+        }
+
+        Auction[] memory claimedAuctions = new Auction[](usersAuctionCount);
+        for (uint i = 1; i <= totalAuctionCount; i++) {
+            tokenId = auctionIdToTokenId[i];
+            if (tokenidToAuction[tokenId].exists == true && tokenidToAuction[tokenId].highestBidder == caller && tokenidToAuction[tokenId].claimed == true) {
+                claimedAuctions[currentIndex] = tokenidToAuction[tokenId];
+                currentIndex++;
+            }
+        }
+
+        return claimedAuctions;
+    }
+
     function getMyNFTForSale() public view returns (MarketItem[] memory) {
         uint totalItemCount = _itemIds.current();
         uint ownedItemCount = 0;
         uint currentIndex = 0;
 
         for (uint i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i +1].seller == msg.sender) {
+            if (sellIdToMarketItem[i +1].exists == true && sellIdToMarketItem[i +1].seller == msg.sender) {
                 ownedItemCount++;
             }
         }
 
         MarketItem[] memory ownedItems = new MarketItem[](ownedItemCount);
         for (uint i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i +1].seller == msg.sender) {
-                uint currentId = idToMarketItem[i +1].itemId;
-                MarketItem storage currentItem = idToMarketItem[currentId];
+            if (sellIdToMarketItem[i +1].exists == true && sellIdToMarketItem[i +1].seller == msg.sender) {
+                uint currentId = sellIdToMarketItem[i +1].itemId;
+                MarketItem storage currentItem = sellIdToMarketItem[currentId];
                 ownedItems[currentIndex] = currentItem;
                 currentIndex++;
             }
@@ -310,7 +324,7 @@ contract NFTMarket is ReentrancyGuard {
 
         for (uint i = 1; i <= totalAuctionCount; i++) {
             uint tokenId = auctionIdToTokenId[i];
-            if (tokenidToAuction[tokenId].seller == msg.sender) {
+            if (tokenidToAuction[tokenId].exists == true && tokenidToAuction[tokenId].seller == msg.sender) {
                 usersAuctionCount++;
             }
         }
@@ -318,7 +332,7 @@ contract NFTMarket is ReentrancyGuard {
         Auction[] memory myAuctions = new Auction[](usersAuctionCount);
         for (uint i = 1; i <= totalAuctionCount; i++) {
             uint tokenId = auctionIdToTokenId[i];
-            if (tokenidToAuction[tokenId].seller == msg.sender) {
+            if (tokenidToAuction[tokenId].exists == true && tokenidToAuction[tokenId].seller == msg.sender) {
                 myAuctions[currentIndex] = tokenidToAuction[tokenId];
                 currentIndex++;
             }
@@ -335,7 +349,7 @@ contract NFTMarket is ReentrancyGuard {
 
         for (uint i = 1; i <= totalAuctionCount; i++) {
             tokenId = auctionIdToTokenId[i];
-            if (tokenidToAuction[tokenId].highestBidder == caller && tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd < block.timestamp) {
+            if (tokenidToAuction[tokenId].exists == true && tokenidToAuction[tokenId].highestBidder == caller && tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd < block.timestamp) {
                 usersAuctionCount++;
             }
         }
@@ -343,7 +357,7 @@ contract NFTMarket is ReentrancyGuard {
         Auction[] memory auctionsToClaim = new Auction[](usersAuctionCount);
         for (uint i = 1; i <= totalAuctionCount; i++) {
             tokenId = auctionIdToTokenId[i];
-            if (tokenidToAuction[tokenId].highestBidder == caller && tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd < block.timestamp) {
+            if (tokenidToAuction[tokenId].exists == true && tokenidToAuction[tokenId].highestBidder == caller && tokenidToAuction[tokenId].claimed == false && tokenidToAuction[tokenId].auctionEnd < block.timestamp) {
                 auctionsToClaim[currentIndex] = tokenidToAuction[tokenId];
                 currentIndex++;
             }
