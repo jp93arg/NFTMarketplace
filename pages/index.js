@@ -69,7 +69,8 @@ export default function Home(config) {
   }
 
   async function loadAuctions(marketContract, tokenContract) {
-    const auctions = await marketContract.getOngoingAuctions();
+    let auctions = await marketContract.getOngoingAuctions();
+    auctions = auctions.filter(a => a.itemId != 0);
     const items = await Promise.all(auctions.map(async (i) => {
       const tokenUri = await tokenContract.tokenURI(i.itemId);
       const metadata = await axios.get(tokenUri);
