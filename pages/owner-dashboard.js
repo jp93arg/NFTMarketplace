@@ -86,8 +86,8 @@ export default function ListMyAssets(config) {
                         <div key={i} className="bg-grey rounded shadow-md p-4">
                             <img src={nft.image} className="rounded" />
                             <div className="p-4 bg-black">
-                                <p className="text-2xl text-white">Price paid {nft.price} {currency}</p>
-                                <p className="text-2xl text-white">Name {nft.name} {currency}</p>
+                                <p className="text-2xl text-white">Price paid: {nft.price} {currency}</p>
+                                <p className="text-2xl text-white">Name: {nft.name}</p>
                             </div>
                         </div>))}
                 </div>
