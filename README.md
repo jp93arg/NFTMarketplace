@@ -74,7 +74,7 @@ npx hardhat node
 ```
 
 3. Configure hardhat main account
-Create the .secret file in the root folder of the project and place the private key of the main account that hardhat will use to deploy the contracts.
+Create the `.secret` file in the root folder of the project and place the private key of the main account that hardhat will use to deploy the contracts.
 Remember not to share this value with anybody. If anyone has access to the private key, it will have access to the funds that the address may have now and even in the future.
 
 You can get the private key of your ethereum account from your wallet.
@@ -82,6 +82,7 @@ For example, if you're using metamask you can follow these steps.
 - Select the acconut:
 - Account details
 - Export private key
+
 ![image](https://user-images.githubusercontent.com/33181203/143784954-797bd7ea-f644-42b9-8bd9-da6501ef012d.png)
 ![image](https://user-images.githubusercontent.com/33181203/143784969-115791eb-867b-4087-98e0-165ec420b3ff.png)
 
